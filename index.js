@@ -1,4 +1,5 @@
-const { Transform } = require("stream");
+const StreamArray = require("stream-json/streamers/StreamArray");
+const { Transform, Readable } = require("stream");
 const fs = require("fs");
 const Exception = require("./exceptions/bmi-exception");
 
@@ -30,42 +31,46 @@ function determineBMIHealthRisk(bmi) {
 
 function findBMI(data) {
   try {
-    for (const index in data) {
-      data[index]["BMI"] = (
-        data[index].WeightKg / Math.pow(data[index].HeightCm / 100, 2)
-      ).toFixed(2);
-      data[index]["category"] = determineBMICategory(data[index].BMI);
-      data[index]["risk"] = determineBMICategory(data[index].BMI);
-    }
+    data["BMI"] = (data.WeightKg / Math.pow(data.HeightCm / 100, 2)).toFixed(2);
+    data["category"] = determineBMICategory(data.BMI);
+    data["risk"] = determineBMICategory(data.BMI);
     return data;
   } catch (error) {
     Exception.error("Error determining BMI.", error, "BMIException");
   }
 }
 
+let firstObjectRead = false;
+
 const transform = new Transform({
+  readableObjectMode: true,
   writableObjectMode: true,
-  transform(chunk, encoding, callback) {
-    const data = JSON.parse(chunk.toString());
-    this.push(JSON.stringify(findBMI(data)));
+  transform({ key, value }, encoding, callback) {
+    let separator = ",";
+    if (!firstObjectRead) {
+      firstObjectRead = true;
+      separator = "[";
+    }
+    this.push(separator + JSON.stringify(findBMI(value)));
     callback();
   }
 });
 
 function processInput(inputPath, outputPath) {
   try {
-    const readStream = fs.createReadStream(inputPath, {
-      objectMode: true
-    });
+    const readStream = fs.createReadStream(inputPath);
     const writeStream = fs.createWriteStream(outputPath);
-    readStream.on("error", (error) => {
-      Exception.error("Error on read stream.", error, "ReadStreamException");
+    const jsonParser = StreamArray.withParser();
+
+    readStream.pipe(jsonParser.input).on("error", (error) => {
+      Exception.error("Error parsing json.", error, "TransformException");
     });
-    readStream.pipe(transform).on("error", (error) => {
-      Exception.error("Error on transform.", error, "TransformException");
-    });
-    transform.pipe(writeStream, (error) => {
+    jsonParser.pipe(transform).pipe(writeStream, (error) => {
       Exception.error("Error on write stream.", error, "WriteStreamException");
+    });
+
+    writeStream.on("finish", function () {
+      fs.appendFileSync(outputPath, "]");
     });
   } catch (error) {
     Exception.error("Error processing data.", error, "Exception");
@@ -73,3 +78,8 @@ function processInput(inputPath, outputPath) {
 }
 
 processInput("./data/sample1.json", "./data/sample2.json");
+
+module.exports = {
+  processInput: processInput,
+  findBMI: findBMI
+};
