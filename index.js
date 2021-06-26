@@ -71,26 +71,51 @@ const transform = new Transform({
 /*
   processInput - reads the file at 'inputPath', performs a transformation and writes to the file at the 'outputPath' 
 */
-function processInput(inputPath, outputPath) {
+async function processInput(inputPath, outputPath) {
   try {
-    // Init read and write stream
-    const readStream = fs.createReadStream(inputPath);
-    const writeStream = fs.createWriteStream(outputPath);
-    // Init json parser - particularly necessary for read
-    const jsonParser = StreamArray.withParser();
+    return new Promise((resolve, reject) => {
+      // Init read and write stream
+      const readStream = fs.createReadStream(inputPath);
+      const writeStream = fs.createWriteStream(outputPath);
+      // Init json parser - particularly necessary for read
+      const jsonParser = StreamArray.withParser();
 
-    // Read from file and pipe to the JSON parser
-    readStream.pipe(jsonParser.input).on("error", (error) => {
-      Exception.error("Error parsing json.", error, "TransformException");
-    });
-    // Once the chunks are parsed, pass them to the transform stream, and write the output
-    jsonParser.pipe(transform).pipe(writeStream, (error) => {
-      Exception.error("Error on write stream.", error, "WriteStreamException");
-    });
+      readStream.on("error", (error) => {
+        Exception.error("Input stream error.", error, "InputStreamException");
+        reject({
+          status: "Error",
+          error: error
+        });
+      });
 
-    // Once the writes are done, ensure to add the closing bracket for the list of objects
-    writeStream.on("finish", function () {
-      fs.appendFileSync(outputPath, "]");
+      // Read from file and pipe to the JSON parser
+      readStream.pipe(jsonParser.input).on("error", (error) => {
+        Exception.error("Error parsing json.", error, "TransformException");
+        reject({
+          status: "Error",
+          error: error
+        });
+      });
+      // Once the chunks are parsed, pass them to the transform stream, and write the output
+      jsonParser.pipe(transform).pipe(writeStream, (error) => {
+        Exception.error(
+          "Error on write stream.",
+          error,
+          "WriteStreamException"
+        );
+        reject({
+          status: "Error",
+          error: error
+        });
+      });
+
+      // Once the writes are done, ensure to add the closing bracket for the list of objects
+      writeStream.on("finish", function () {
+        fs.appendFileSync(outputPath, "]");
+        resolve({
+          status: "Success"
+        });
+      });
     });
   } catch (error) {
     Exception.error("Error processing data.", error, "Exception");
