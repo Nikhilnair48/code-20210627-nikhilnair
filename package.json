@@ -1,0 +1,19 @@
+{
+  "name": "bmi-calculator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Nikhilnair48/code-20210627-nikhilnair.git"
+  },
+  "author": "Nikhil Nair",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Nikhilnair48/code-20210627-nikhilnair/issues"
+  },
+  "homepage": "https://github.com/Nikhilnair48/code-20210627-nikhilnair#readme"
+}
