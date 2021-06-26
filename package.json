@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/Nikhilnair48/code-20210627-nikhilnair/issues"
   },
-  "homepage": "https://github.com/Nikhilnair48/code-20210627-nikhilnair#readme"
+  "homepage": "https://github.com/Nikhilnair48/code-20210627-nikhilnair#readme",
+  "dependencies": {
+    "stream-json": "^1.7.1"
+  }
 }
