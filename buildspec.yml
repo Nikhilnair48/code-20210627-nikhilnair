@@ -1,0 +1,15 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      - echo Installing dependencies...
+      - npm install
+  build:
+    command:
+      - echo entered build stage.
+      - npm run build
+    finally:
+      - echo build stage complete.
+artifacts:
+  files:
+    - dist/**/*
