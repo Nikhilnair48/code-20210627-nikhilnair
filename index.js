@@ -1,6 +1,5 @@
-const StreamArray = require("stream-json/streamers/StreamArray");
-const { Transform, Readable } = require("stream");
 const fs = require("fs");
+const readLine = require("readline");
 const Exception = require("./exceptions/bmi-exception");
 
 // Helper function to determine BMI category
@@ -53,21 +52,6 @@ function findBMI(data) {
 // for consequent objects, a comma will be added in the Transform stream
 let firstObjectRead = false;
 
-// Transform stream - given a JSON, invoke findBMI and push the updated chunk onto the stream
-const transform = new Transform({
-  readableObjectMode: true,
-  writableObjectMode: true,
-  transform({ key, value }, encoding, callback) {
-    let separator = ",";
-    if (!firstObjectRead) {
-      firstObjectRead = true;
-      separator = "[";
-    }
-    this.push(separator + JSON.stringify(findBMI(value)));
-    callback();
-  }
-});
-
 /*
   processInput - reads the file at 'inputPath', performs a transformation and writes to the file at the 'outputPath' 
 */
@@ -77,41 +61,21 @@ async function processInput(inputPath, outputPath) {
       // Init read and write stream
       const readStream = fs.createReadStream(inputPath);
       const writeStream = fs.createWriteStream(outputPath);
-      // Init json parser - particularly necessary for read
-      const jsonParser = StreamArray.withParser();
-
-      readStream.on("error", (error) => {
-        Exception.error("Input stream error.", error, "InputStreamException");
-        reject({
-          status: "Error",
-          error: error
-        });
+      const rl = readLine.createInterface({
+        input: readStream,
+        output: writeStream
       });
 
-      // Read from file and pipe to the JSON parser
-      readStream.pipe(jsonParser.input).on("error", (error) => {
-        Exception.error("Error parsing json.", error, "TransformException");
-        reject({
-          status: "Error",
-          error: error
-        });
+      // Parse each line
+      rl.on("line", function (line) {
+        // Convert each line to a JSON object (JSON.parse)
+        let input = JSON.parse(line);
+        let output = findBMI(input);
+        // Write to output stream
+        writeStream.write(JSON.stringify(output) + "\n");
       });
-      // Once the chunks are parsed, pass them to the transform stream, and write the output
-      jsonParser.pipe(transform).pipe(writeStream, (error) => {
-        Exception.error(
-          "Error on write stream.",
-          error,
-          "WriteStreamException"
-        );
-        reject({
-          status: "Error",
-          error: error
-        });
-      });
-
-      // Once the writes are done, ensure to add the closing bracket for the list of objects
-      writeStream.on("finish", function () {
-        fs.appendFileSync(outputPath, "]");
+      rl.on("close", function () {
+        writeStream.close();
         resolve({
           status: "Success"
         });
@@ -123,7 +87,7 @@ async function processInput(inputPath, outputPath) {
 }
 
 // Process all the data from the first argument and write to the file in the second argument
-processInput("./data/sample1.json", "./data/sample2.json");
+processInput("./data/sample5.txt", "./data/sample6.txt");
 
 module.exports = {
   processInput: processInput,
